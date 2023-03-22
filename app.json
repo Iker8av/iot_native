@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "iot_native",
+    "slug": "iot_native",
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  },
+  "name": "iot_native"
+}
