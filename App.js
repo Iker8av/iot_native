@@ -1,13 +1,47 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, SafeAreaView } from 'react-native';
+import { db, dbFs } from './firebase-config';
+import {
+  ref,
+  onValue,
+  push,
+  update,
+  remove
+} from 'firebase/database';
+import {firestore} from '@react-native-firebase/firestore';
+import {getDocs, onSnapshot, collection, doc } from 'firebase/firestore';
+
 
 export default function App() {
   const [doorState, setDoorState] = React.useState(false)
   const [temperature, setTemperature] = React.useState(28)
   const [lightState, setLightState] = React.useState(false)
   
-  const [record, setRecord] = React.useState(["i", "1", "i", "1", "i"])
+  const [newRecord, setNewRecord] = React.useState([])
+  const [records, setRecords] = React.useState([])
+
+  React.useEffect(() => {
+    (async () => {
+      let newData;
+      const userDocument = await getDocs(collection(dbFs, "Accesos")).then((querySnapshot)=>{               
+                newData = querySnapshot.docs
+                    .map((doc) => ({...doc.data(), id:doc.id }));  
+                    setRecords([...newData])
+            })
+
+      return onValue(ref(db, '/'), querySnapShot => {
+        let data = querySnapShot.val() || {};
+        setDoorState(Object.values(data.Puerta)[Object.values(data.Puerta).length-1])
+        setTemperature(Object.values(data.Temperatura)[Object.values(data.Temperatura).length-1])
+        setLightState(Object.values(data.Foco)[Object.values(data.Foco).length-1])
+        setRecords([data.Usuario, ...newData])
+      });
+    })()
+
+    
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -21,10 +55,10 @@ export default function App() {
             contentContainerStyle={{flexGrow: 1}}
             style={styles.scrollView2}
             showsVerticalScrollIndicator={false} >
-          {record.map((item, i) => {
-            return <View >
-                {Record(i)}
-                {i != record.length - 1 && <View
+          {records.length > 0 && records.map((item, i) => {
+            return <View key={i}>
+                {<Record data={item} i={i}/>}
+                {i != records.length - 1 && <View
                   style={{
                     backgroundColor: '#838383',
                     height: 1,
@@ -45,10 +79,10 @@ export default function App() {
           <View style={styles.iconContent}>
             <Image
               style={styles.icon}
-              source={doorState ? require('./img/puertaCerrada.png') : require('./img/puertaAbierta.png')}
+              source={doorState ? require('./img/puertaAbierta.png') : require('./img/puertaCerrada.png')}
             />
-            <Text style={[styles.textStatus, doorState ? styles.green : styles.red]}>
-              {doorState ? "Cerrada" : "Abierta"}
+            <Text style={[styles.textStatus, doorState ? styles.red : styles.green]}>
+              {doorState ? "Abierta" : "Cerrada"}
             </Text>
           </View>
         </View>
@@ -77,10 +111,10 @@ export default function App() {
           <View style={styles.iconContent}>
             <Image
               style={styles.icon}
-              source={lightState ? require('./img/FocoOff.png') : require('./img/FocoOn.png')}
+              source={lightState ? require('./img/FocoOn.png') : require('./img/FocoOff.png')}
             />
-            <Text style={[styles.textStatus, lightState ? styles.green : styles.red]}>
-              {lightState ? "Apagado" : "Encendido"}
+            <Text style={[styles.textStatus, lightState ? styles.red : styles.green]}>
+              {lightState ? "Encendido" : "Apagado"}
             </Text>
           </View>
         </View>
@@ -92,15 +126,15 @@ export default function App() {
   );
 }
 
-const Record = ({i}) => {
+const Record = ({data, i}) => {
   return (
     <View style={recordStyle.row}>
       <View style={recordStyle.column}>
-        <Text style={recordStyle.name}>Nombre Apellido</Text> 
-        <Text style={recordStyle.date}>22 / Marzo 2023 - 11:28 a.m.</Text> 
+        <Text style={recordStyle.name}>{data.Nombre}</Text> 
+        <Text style={recordStyle.date}>{data.Fecha}</Text> 
       </View>
 
-      <Text style={recordStyle.red}>Salida</Text> 
+      <Text style={data.Acceso ? recordStyle.green : recordStyle.red}>{data.Acceso ? "Aceptado" : "Denegado"}</Text> 
     </View>
   );
 }
@@ -112,9 +146,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     marginHorizontal: 20,
+    marginBottom: 20
   },
   scrollView2: {
-    height: 250,
+    maxHeight: 250,
     flexGrow: 1
   },
   title: {
